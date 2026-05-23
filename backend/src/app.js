@@ -1,6 +1,8 @@
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
+const authRoutes = require('./routes/auth')
+
 
 const app = express()
 
@@ -13,5 +15,7 @@ app.use(express.json())
 app.get('/health', (req,res) => {
     res.json({ status: 'ok', message: 'Vault API is running' })
 })
+
+app.use('/api/auth', authRoutes) // all routes in authRoutes will be prefixed with /api/auth, so we can have /api/auth/register and /api/auth/login
 
 module.exports = app // creates and exports app
