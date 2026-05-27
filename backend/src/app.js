@@ -3,6 +3,7 @@ const cors = require('cors')
 const helmet = require('helmet')
 const authRoutes = require('./routes/auth')
 const collectionRoutes = require('./routes/collections')
+const documentRoutes = require('./routes/documents')
 
 
 const app = express()
@@ -19,4 +20,5 @@ app.get('/health', (req,res) => {
 
 app.use('/api/auth', authRoutes) // all routes in authRoutes will be prefixed with /api/auth, so we can have /api/auth/register and /api/auth/login
 app.use('/api/collections', collectionRoutes) // all routes in collectionRoutes will be prefixed with /api/collections
+app.use('/api/documents', documentRoutes) // all routes in documentRoutes will be prefixed with /api/documents
 module.exports = app // creates and exports app
