@@ -26,8 +26,8 @@ export function useAuth() {
 
     const register = async( email: string, password: string, full_name:string) => {
         try {
-            setLoading(true)
-            setError(null)
+            setLoading(true) // set loading state to true when registration starts
+            setError(null) // clear any previous errors
             const response = await api.post<AuthResponse>('/auth/register', {email, password, full_name})
             localStorage.setItem('token', response.data.token)
             localStorage.setItem('user', JSON.stringify(response.data.user))
