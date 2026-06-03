@@ -3,7 +3,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import RegisterPage from "./pages/RegisterPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
-import CollectionPage from "./pages/CollectionPage.tsx";
+import CollectionPage from "./pages/CollectionPage";
 
 function App() {
   return (

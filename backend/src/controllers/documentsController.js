@@ -42,7 +42,7 @@ const uploadDocument = async (req, res) => {
 
     const getDocuments = async (req,res) => {
         try {
-            const {collection_id} = req.params
+            const {collection_id} = req.query
 
             let query = `SELECT * FROM documents WHERE user_id = $1 AND deleted_at IS NULL`
             let params = [req.user.userId]

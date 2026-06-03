@@ -18,15 +18,25 @@ export default function CollectionPage() {
   }, [id]);
 
   const fetchData = async () => {
+    // debug
+    console.log("Fetching docs for collection:", id);
     try {
       const [collectionRes, documentsRes] = await Promise.all([
         api.get<Collection>(`/collections/${id}`),
-        api.get<Document[]>(`/documents?collection_id=${id}`),
+        api.get<Document[]>(`/documents?collection_id=${id}&t=${Date}`),
       ]);
+      console.log("Collection ID:", id);
+      console.log(
+        "Documents received:",
+        documentsRes.data.map((d) => ({
+          file_name: d.file_name,
+          collection_id: d.collection_id,
+        })),
+      );
       setCollection(collectionRes.data);
       setDocuments(documentsRes.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching collection data:", err);
       navigate("/dashboard");
     } finally {
       setLoading(false);
