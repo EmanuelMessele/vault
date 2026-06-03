@@ -93,6 +93,15 @@ export default function CollectionPage() {
     );
   }
 
+  const deleteDocument = async (docId: string) => {
+    try {
+      await api.delete(`/documents/${docId}`);
+      setDocuments(documents.filter((doc) => doc.id !== docId));
+    } catch (err) {
+      console.error("Error deleting document:", err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Navbar */}
@@ -169,6 +178,13 @@ export default function CollectionPage() {
                 >
                   {doc.processing_status}
                 </span>
+                <button
+                  onClick={() => deleteDocument(doc.id)}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-sm"
+                >
+                  {" "}
+                  Delete{" "}
+                </button>
               </div>
             ))}
           </div>
