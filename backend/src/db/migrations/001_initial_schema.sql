@@ -40,14 +40,14 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE IF NOT EXISTS document_chunks(
+CREATE TABLE IF NOT EXISTS document_chunks(  -- this table will store the chunks of the documents along with their embeddings for efficient retrieval and similarity search
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  embedding vector(1536),
-  chunk_index INTEGER NOT NULL,
+  embedding vector(1536), -- stores embedding of chunk --> embeddings are typically 1536-dimensional for models like OpenAI's text-embedding-3-small
+  chunk_index INTEGER NOT NULL, -- stores index of chunk for ez retrieval
   created_at TIMESTAMP DEFAULT NOW()
 )
 
@@ -55,3 +55,4 @@ CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
 ON document_chunks 
 USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
+-- makes search faster
