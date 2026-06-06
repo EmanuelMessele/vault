@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15 # use the official postgres image from Docker Hub
+    image: pgvector/pgvector:pg15 # use the official postgres image from Docker Hub
     container_name: vault_postgres
     environment: # set environment variables for postgres
       POSTGRES_USER: vault_user

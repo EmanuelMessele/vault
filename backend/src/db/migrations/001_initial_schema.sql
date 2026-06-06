@@ -37,3 +37,21 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   content TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS document_chunks(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding vector(1536),
+  chunk_index INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx 
+ON document_chunks 
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
