@@ -36,7 +36,7 @@ def search_similar_chunks(query: str, collection_id: str, user_id: str, limit: i
     
     finally:
         cur.close()
-        conn.close()
+        conn.close() # ensure we close the connection
 
 def generate_answer(query: str, chunks: list[dict]) -> str:
     context = "\n\n".join([chunk["content"] for chunk in chunks])
