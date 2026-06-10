@@ -5,6 +5,7 @@ from services.database import get_connection
 from services.document_processor import generate_embedding
 
 client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
+# get our api key from environment variables for security
 
 def search_similar_chunks(query: str, collection_id: str, user_id: str, limit: int = 5) -> list[dict]:
     query_embedding = generate_embedding(query)
