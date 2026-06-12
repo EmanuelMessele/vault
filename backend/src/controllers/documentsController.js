@@ -1,6 +1,8 @@
+// controllers/documentsController.js --> this file contains the logic for handling document-related operations such as uploading, retrieving, and deleting documents.
 const pool = require('../db/index')
 const path = require('path')
 const fs = require('fs')
+const axios = require('axios')
 
 const uploadDocument = async (req, res) => {
     try{
@@ -31,7 +33,21 @@ const uploadDocument = async (req, res) => {
             RETURNING *`, [collection_id, req.user.userId, req.file.originalname, req.file.mimetype, req.file.size, req.file.filename]
         )
 
-        res.status(201).json(result.rows[0])
+        // Trigger AI processing asynchronously
+        const document = result.rows[0]
+        console.log('File path being sent to AI service:', req.file.path)
+        try {
+            await axios.post('http://localhost:8000/api/documents/process', {
+                document_id: document.id,
+                file_path: req.file.path.replace(/\\/g, '/'), // Ensure path is in correct format for AI service
+                collection_id: collection_id,
+                user_id: req.user.userId
+            })
+        } catch (aiError) {
+            console.error('AI service error:', aiError.message)
+        }
+
+        res.status(201).json(document)
 
     } catch (err) {
         if(req.file) fs.unlinkSync(req.file.path)

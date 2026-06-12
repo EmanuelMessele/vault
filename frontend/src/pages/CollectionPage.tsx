@@ -2,10 +2,22 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { Collection, Document } from "../types";
 import api from "../lib/api";
+import axios from "axios";
+import { useAuth } from "../hooks/useAuth";
 
 export default function CollectionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const { getUser } = useAuth();
+  const user = getUser();
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
+    [],
+  );
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
 
   const [collection, setCollection] = useState<Collection | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -16,6 +28,19 @@ export default function CollectionPage() {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    const hasPending = documents.some(
+      (d) =>
+        d.processing_status === "pending" ||
+        d.processing_status === "processing",
+    );
+
+    if (!hasPending) return;
+
+    const interval = setInterval(refreshDocumentStatus, 5000);
+    return () => clearInterval(interval);
+  }, [documents]);
 
   const fetchData = async () => {
     // debug
@@ -99,6 +124,54 @@ export default function CollectionPage() {
       setDocuments(documents.filter((doc) => doc.id !== docId));
     } catch (err) {
       console.error("Error deleting document:", err);
+    }
+  };
+
+  const refreshDocumentStatus = async () => {
+    try {
+      const response = await api.get<Document[]>(
+        `/documents?collection_id=${id}&t=${Date.now()}`,
+      );
+      setDocuments(response.data);
+    } catch (err) {
+      console.error("Error refreshing document status:", err);
+    }
+  };
+
+  const askQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!question.trim() || !id) return;
+
+    const userMessage = { role: "user", content: question };
+    setMessages((prev) => [...prev, userMessage]);
+    setQuestion("");
+    setAsking(true);
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8000/api/documents/ask",
+        {
+          query: question,
+          collection_id: id,
+          user_id: user?.id,
+        },
+      );
+
+      const assitantMessage = {
+        role: "assistant",
+        content: response.data.answer,
+      };
+      setMessages((prev) => [...prev, assitantMessage]);
+    } catch (err) {
+      console.error("Error asking question:", err);
+      const errorMessage = {
+        role: "assistant",
+        content: "Sorry, something went wrong. Please try again.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setAsking(false);
     }
   };
 
@@ -190,6 +263,83 @@ export default function CollectionPage() {
           </div>
         )}
       </main>
+      {/* Chat Toggle Button */}
+      <div className="fixed bottom-6 right-6">
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className="bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-colors"
+        >
+          {chatOpen ? "✕" : "💬"}
+        </button>
+      </div>
+
+      {/* Chat Panel */}
+      {chatOpen && (
+        <div
+          className="fixed bottom-24 right-6 w-96 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl flex flex-col"
+          style={{ height: "500px" }}
+        >
+          <div className="px-4 py-3 border-b border-gray-800">
+            <h3 className="text-white font-medium">
+              Ask about this collection
+            </h3>
+            <p className="text-gray-500 text-xs mt-0.5">Powered by AI</p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center mt-8">
+                Ask a question about your documents
+              </p>
+            ) : (
+              messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-xs px-3 py-2 rounded-xl text-sm ${
+                      msg.role === "user"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-800 text-gray-200"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              ))
+            )}
+            {asking && (
+              <div className="flex justify-start">
+                <div className="bg-gray-800 text-gray-400 px-3 py-2 rounded-xl text-sm">
+                  Thinking...
+                </div>
+              </div>
+            )}
+          </div>
+
+          <form
+            onSubmit={askQuestion}
+            className="p-3 border-t border-gray-800 flex gap-2"
+          >
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask a question..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+              disabled={asking}
+            />
+            <button
+              type="submit"
+              disabled={asking || !question.trim()}
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white px-3 py-2 rounded-lg text-sm transition-colors"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
