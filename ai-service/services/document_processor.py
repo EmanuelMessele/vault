@@ -49,8 +49,18 @@ def process_document(document_id: str, file_path: str, collection_id: str, user_
         text = extract_text_from_pdf(file_path)
         chunks = chunk_text(text)
         chunks = chunks[:20] # Limit to first 20 chunks for now to control costs and processing time
+        print(f"Processing {len(chunks)} chunks")
 
-        for i, chunk in enumerate (chunks):
+        response = client.embeddings.create(
+            model = "text-embedding-3-small",
+            input = chunks
+        )
+
+        embeddings = [item.embedding for item in response.data]
+        print(f"Generated {len(embeddings)} embeddings")
+
+
+        for i, (chunk,embedding) in enumerate (zip(chunks, embeddings)):
             embedding = generate_embedding(chunk)
 
             cur.execute(
@@ -62,6 +72,14 @@ def process_document(document_id: str, file_path: str, collection_id: str, user_
             )
 
             conn.commit()
+
+            cur.execute(
+                "UPDATE documents SET processing_status = 'completed' WHERE id = %s",
+                (document_id,)
+            )
+
+            conn.commit()
+            print(f"Document {document_id} processed successfully")
 
     except Exception as e:
         conn.rollback()
