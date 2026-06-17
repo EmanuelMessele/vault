@@ -37,14 +37,14 @@ const uploadDocument = async (req, res) => {
         const document = result.rows[0]
         console.log('File path being sent to AI service:', req.file.path)
         try {
-            await axios.post('http://localhost:8000/api/documents/process', {
+            await axios.post('http://ai-service:8000/api/documents/process', {
                 document_id: document.id,
                 file_path: req.file.path.replace(/\\/g, '/'), // Ensure path is in correct format for AI service
                 collection_id: collection_id,
                 user_id: req.user.userId
             })
         } catch (aiError) {
-            console.error('AI service error:', aiError.message)
+            console.error('AI service error:', aiError)
         }
 
         res.status(201).json(document)
