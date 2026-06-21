@@ -44,7 +44,13 @@ const uploadDocument = async (req, res) => {
                 user_id: req.user.userId
             })
         } catch (aiError) {
-            console.error('AI service error:', aiError)
+            if(aiError.response){
+                console.error('AI service response error:', aiError.response.status, aiError.response.data)
+            } else if (aiError.request) {
+                console.error('AI service no response:', aiError.message)
+            } else {
+                console.error('AI service error:', aiError.message)
+            }
         }
 
         res.status(201).json(document)
