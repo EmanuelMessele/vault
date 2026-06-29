@@ -27,6 +27,15 @@ const runMigrations = async () => {
 
     if(already.rows.length === 0){
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8')
+        const statements = sql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+
+        for(const statement of statements){
+            await client.query(statement)
+        }
+        
         await client.query(sql)
         await client.query(
             `INSERT INTO migrations (filename) VALUES ($1)`, [file]

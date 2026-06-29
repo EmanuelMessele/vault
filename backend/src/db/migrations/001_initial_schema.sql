@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS document_chunks(  -- this table will store the chunks
   embedding vector(1536), -- stores embedding of chunk --> embeddings are typically 1536-dimensional for models like OpenAI's text-embedding-3-small
   chunk_index INTEGER NOT NULL, -- stores index of chunk for ez retrieval
   created_at TIMESTAMP DEFAULT NOW()
-)
+);
 
 CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx 
 ON document_chunks 
