@@ -8,6 +8,9 @@ const pool = new Pool({
     database: process.env.DB_NAME || 'vault_db',
     user: process.env.DB_USER || 'vault_user',
     password: process.env.DB_PASSWORD || 'vault_password',
+    ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
+        ? { rejectUnauthorized: false}
+        : false,
 })
 
 pool.on('connect', () => {
