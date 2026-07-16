@@ -150,7 +150,7 @@ export default function CollectionPage() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/documents/ask",
+         "http://vault-alb-1816210994.us-east-2.elb.amazonaws.com:8000/api/documents/ask",
         {
           query: question,
           collection_id: id,
