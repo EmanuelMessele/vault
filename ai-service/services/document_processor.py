@@ -1,15 +1,21 @@
-
-# This module handles the processing of uploaded documents, including text extraction, chunking, embedding generation, and database storage.
 from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv(), override=True) # Load environment variables from .env file and override existing ones if necessary
+load_dotenv(find_dotenv(), override=True)
 import os
 print("OpenAI key loaded:", os.getenv("OPENAI_API_KEY")[:20] if os.getenv("OPENAI_API_KEY") else "NOT FOUND")
 from openai import OpenAI
 from pypdf import PdfReader
-import psycopg2
+import boto3
+import tempfile
 from services.database import get_connection
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "us-east-2"))
+
+def download_from_s3(s3_bucket: str, s3_key: str) -> str:
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    s3_client.download_file(s3_bucket, s3_key, tmp.name)
+    tmp.close()
+    return tmp.name
 
 def extract_text_from_pdf(file_path: str) -> str:
     reader = PdfReader(file_path)
@@ -23,21 +29,22 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 100) -> list[st
     chunks = []
     i = 0
     while i < len(words):
-        chunk = " ". join (words[i:i + chunk_size])
+        chunk = " ".join(words[i:i + chunk_size])
         chunks.append(chunk)
         i += chunk_size - overlap
     return chunks
 
-def generate_embedding(text:str) -> list[float]:
+def generate_embedding(text: str) -> list[float]:
     response = client.embeddings.create(
-        model = "text-embedding-3-small", # use the latest embedding model from OpenAI
-        input = text
+        model="text-embedding-3-small",
+        input=text
     )
     return response.data[0].embedding
 
-def process_document(document_id: str, file_path: str, collection_id: str, user_id: str):
+def process_document(document_id: str, s3_key: str, s3_bucket: str, collection_id: str, user_id: str):
     conn = get_connection()
     cur = conn.cursor()
+    tmp_path = None
 
     try:
         cur.execute(
@@ -46,40 +53,40 @@ def process_document(document_id: str, file_path: str, collection_id: str, user_
         )
         conn.commit()
 
-        text = extract_text_from_pdf(file_path)
+        print(f"Downloading from S3: {s3_bucket}/{s3_key}")
+        tmp_path = download_from_s3(s3_bucket, s3_key)
+        print(f"Downloaded to temp file: {tmp_path}")
+
+        text = extract_text_from_pdf(tmp_path)
         chunks = chunk_text(text)
-        chunks = chunks[:20] # Limit to first 20 chunks for now to control costs and processing time
+        chunks = chunks[:20]
         print(f"Processing {len(chunks)} chunks")
 
         response = client.embeddings.create(
-            model = "text-embedding-3-small",
-            input = chunks
+            model="text-embedding-3-small",
+            input=chunks
         )
 
         embeddings = [item.embedding for item in response.data]
         print(f"Generated {len(embeddings)} embeddings")
 
-
-        for i, (chunk,embedding) in enumerate (zip(chunks, embeddings)):
-            embedding = generate_embedding(chunk)
-
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             cur.execute(
                 """
                 INSERT INTO document_chunks (document_id, collection_id, user_id, content, embedding, chunk_index)
-                VALUES (%s, %s, %s, %s, %s, %s) 
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (document_id, collection_id, user_id, chunk, embedding, i)
             )
 
-            conn.commit()
+        conn.commit()
 
-            cur.execute(
-                "UPDATE documents SET processing_status = 'completed' WHERE id = %s",
-                (document_id,)
-            )
-
-            conn.commit()
-            print(f"Document {document_id} processed successfully")
+        cur.execute(
+            "UPDATE documents SET processing_status = 'completed' WHERE id = %s",
+            (document_id,)
+        )
+        conn.commit()
+        print(f"Document {document_id} processed successfully")
 
     except Exception as e:
         conn.rollback()
@@ -89,7 +96,9 @@ def process_document(document_id: str, file_path: str, collection_id: str, user_
         )
         conn.commit()
         raise e
-    
+
     finally:
         cur.close()
         conn.close()
+        if tmp_path:
+            os.unlink(tmp_path)

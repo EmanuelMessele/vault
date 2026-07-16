@@ -9,7 +9,8 @@ router = APIRouter()
 
 class ProcessRequest(BaseModel):
     document_id: str
-    file_path: str
+    s3_key: str
+    s3_bucket: str
     collection_id: str
     user_id: str
 
@@ -23,7 +24,8 @@ async def process_doc(request: ProcessRequest, background_tasks: BackgroundTasks
     background_tasks.add_task(
         process_document,
         request.document_id,
-        request.file_path,
+        request.s3_key,
+        request.s3_bucket,
         request.collection_id,
         request.user_id
     )

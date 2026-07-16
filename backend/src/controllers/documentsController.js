@@ -1,8 +1,10 @@
 // controllers/documentsController.js --> this file contains the logic for handling document-related operations such as uploading, retrieving, and deleting documents.
 const pool = require('../db/index')
-const path = require('path')
-const fs = require('fs')
 const axios = require('axios')
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
+
+const s3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-2' })
+const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'vault-uploads-858758524543'
 
 const uploadDocument = async (req, res) => {
     try{
@@ -13,7 +15,6 @@ const uploadDocument = async (req, res) => {
         const {collection_id} = req.body
 
         if(!collection_id){
-            fs.unlink(req.file.path)
             return res.status(400).json({ error: 'Collection ID is required' })
         }
 
@@ -23,23 +24,36 @@ const uploadDocument = async (req, res) => {
         )
 
         if (collection.rows.length === 0){
-            fs.unlink(req.file.path)
             return res.status(404).json({ error: 'Collection not found' })
         }
+
+        // upload to S3
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        const s3Key = `uploads/${uniqueSuffix}-${req.file.originalname}`
+
+        await s3.send(new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: s3Key,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype
+        }))
+
+        console.log('File uploaded to S3 with key:', s3Key)
 
         const result = await pool.query(
             `INSERT INTO documents (collection_id, user_id,file_name, file_type, file_size, storage_key, processing_status)
             VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-            RETURNING *`, [collection_id, req.user.userId, req.file.originalname, req.file.mimetype, req.file.size, req.file.filename]
+            RETURNING *`, [collection_id, req.user.userId, req.file.originalname, req.file.mimetype, req.file.size, s3Key]
         )
 
         // Trigger AI processing asynchronously
         const document = result.rows[0]
-        console.log('File path being sent to AI service:', req.file.path)
+        console.log('S3 key being sent to AI service:', s3Key)
         try {
             await axios.post('http://vault-alb-1816210994.us-east-2.elb.amazonaws.com:8000/api/documents/process', {
                 document_id: document.id,
-                file_path: req.file.path.replace(/\\/g, '/'), // Ensure path is in correct format for AI service
+                s3_key: s3Key,
+                s3_bucket: BUCKET_NAME,
                 collection_id: collection_id,
                 user_id: req.user.userId
             })
@@ -56,7 +70,7 @@ const uploadDocument = async (req, res) => {
         res.status(201).json(document)
 
     } catch (err) {
-        if(req.file) fs.unlinkSync(req.file.path)
+        
         console.error('Upload document error:', err)
         res.status(500).json({ error: 'Internal server error' })
     }
